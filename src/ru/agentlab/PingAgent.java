@@ -1,70 +1,47 @@
 package ru.agentlab;
 import jade.core.*;
-import jade.core.behaviours.*;
-import jade.lang.acl.ACLMessage;
-import jade.domain.FIPAAgentManagement.ServiceDescription;
-import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.DFService;
-import jade.domain.FIPAException;
-import jade.util.Logger;
+import jade.core.AID; 
+import jade.core.Agent; 
+import jade.core.behaviours.CyclicBehaviour; 
+import jade.domain.AMSService; 
+import jade.domain.FIPAAgentManagement.AMSAgentDescription; 
+import jade.domain.FIPAAgentManagement.SearchConstraints; 
+import jade.lang.acl.ACLMessage; 
 public class PingAgent extends Agent {
-	private Logger myLogger = Logger.getMyLogger(getClass().getName());
-
-	private class WaitPingAndReplyBehaviour extends CyclicBehaviour {
-
-		public WaitPingAndReplyBehaviour(Agent a) {
-			super(a);
-		}
-
-		public void action() {
-			ACLMessage  msg = myAgent.receive();
-			if(msg != null){
-				ACLMessage reply = msg.createReply();
-
-				if(msg.getPerformative()== ACLMessage.REQUEST){
-					String content = msg.getContent();
-					if ((content != null) && (content.indexOf("ping") != -1)){
-						myLogger.log(Logger.INFO, "Agent "+getLocalName()+" - Received PING Request from "+msg.getSender().getLocalName());
-						reply.setPerformative(ACLMessage.INFORM);
-						reply.setContent("pong");
-					}
-					else{
-						myLogger.log(Logger.INFO, "Agent "+getLocalName()+" - Unexpected request ["+content+"] received from "+msg.getSender().getLocalName());
-						reply.setPerformative(ACLMessage.REFUSE);
-						reply.setContent("( UnexpectedContent ("+content+"))");
-					}
-
-				}
-				else {
-					myLogger.log(Logger.INFO, "Agent "+getLocalName()+" - Unexpected message ["+ACLMessage.getPerformative(msg.getPerformative())+"] received from "+msg.getSender().getLocalName());
-					reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
-					reply.setContent("( (Unexpected-act "+ACLMessage.getPerformative(msg.getPerformative())+") )");   
-				}
-				send(reply);
-			}
-			else {
-				block();
-			}
-		}
-	} // END of inner class WaitPingAndReplyBehaviour
-
-
-	protected void setup() {
-		// Registration with the DF 
-		DFAgentDescription dfd = new DFAgentDescription();
-		ServiceDescription sd = new ServiceDescription();   
-		sd.setType("PingAgent"); 
-		sd.setName(getName());
-		sd.setOwnership("TILAB");
-		dfd.setName(getAID());
-		dfd.addServices(sd);
-		try {
-			DFService.register(this,dfd);
-			WaitPingAndReplyBehaviour PingBehaviour = new  WaitPingAndReplyBehaviour(this);
-			addBehaviour(PingBehaviour);
-		} catch (FIPAException e) {
-			myLogger.log(Logger.SEVERE, "Agent "+getLocalName()+" - Cannot register with DF", e);
-			doDelete();
-		}
-	}
+	private static final long serialVersionUID = 8257866411543354395L; 
+    public void setup() { 
+        System.out.println("Hello World, my name is : " + getAID().getName()); 
+        // Поведение агента исполняемое в цикле 
+        addBehaviour(new CyclicBehaviour(this) { 
+            private static final long serialVersionUID = 7774831398907094833L; 
+            public void action() { 
+                ACLMessage msg = receive(); 
+                if (msg != null) { 
+                    // Вывод на экран локального имени агента и полученного 
+                    // сообщения 
+                    System.out.println(" – " + myAgent.getLocalName() + " received: " + msg.getContent()); 
+                } 
+                // Блокируем поведение, пока в очереди сообщений агента 
+                // не появится хотя бы одно сообщение 
+                block(); 
+            } 
+        }); 
+        AMSAgentDescription[] agents = null; 
+        try { 
+            SearchConstraints c = new SearchConstraints(); 
+            c.setMaxResults(new Long(-1)); 
+            agents = AMSService.search(this, new AMSAgentDescription(), c); 
+        } catch (Exception e) { 
+            System.out.println("Problem searching AMS: " + e); 
+            e.printStackTrace(); 
+        } 
+        for (AMSAgentDescription agent : agents) { 
+            AID agentID = agent.getName(); 
+            ACLMessage msg = new ACLMessage(ACLMessage.INFORM); 
+            msg.addReceiver(agentID);// id агента которому отправляем сообщение 
+            msg.setLanguage("English");// Язык сообщения 
+            msg.setContent("Ping"); // Содержимое сообщения 
+            send(msg); // отправляем сообщение 
+        } 
+    } 
 }
